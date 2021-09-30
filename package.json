@@ -3,11 +3,22 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
-    "start": "nodemon app.js"
+    "start": "nodemon index.js"
   },
+  "prettier": {
+    "singleQuote": true,
+    "semi": true,
+    "trailingComma": "all"
+  },
+  "type": "module",
   "license": "MIT",
   "dependencies": {
+    "@babel/core": "^7.15.5",
+    "@babel/register": "^7.15.3",
     "@koa/cors": "^3.1.0",
+    "eslint": "^7.32.0",
+    "eslint-config-airbnb": "^18.2.1",
+    "eslint-plugin-import": "^2.24.2",
     "koa": "^2.13.3",
     "koa-body": "^4.2.0",
     "koa-router": "^10.1.1",

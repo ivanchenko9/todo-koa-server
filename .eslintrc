@@ -1,0 +1,32 @@
+{
+  // "parser": "babel-eslint",
+  "env": {
+    "es6": true,
+    "browser": true
+  },
+  "plugins": ["react", "@typescript-eslint"],
+  "extends": ["eslint:recommended", "airbnb-base"],
+  "rules": {
+    "no-unused-vars": "error",
+    "max-len": "off",
+    "no-console": "off",
+    "no-debugger": "off",
+    "class-methods-use-this": "off",
+    "consistent-return": "off",
+    "semi": "off",
+    "import/extensions": "off",
+    "import/no-unresolved": "off",
+    "implicit-arrow-linebreak": "off",
+    "no-shadow": "off",
+    "object-curly-newline": "off",
+    "operator-linebreak": "off",
+    "no-nested-ternary": "off",
+    "no-underscore-dangle": "off",
+    "no-unneeded-ternary": "off",
+    "no-unused-expressions": "off",
+    "prefer-destructuring": "off",
+    "guard-for-in": "off",
+    "no-restricted-syntax": "off",
+    "no-prototype-builtins": "off"
+  }
+}

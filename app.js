@@ -1,25 +1,19 @@
-const Koa = require('koa')
-const { MongoClient } = require('mongodb')
-const app = new Koa()
+import Koa from 'koa';
+import routeInit from './src/router/index.js';
+import handler from './src/handlers/index.js';
 
-const initRouter = require('./router')
-const { errors, bodyParser, cors } = require('./handlers')
+const app = async () => {
+  const app = new Koa();
 
-const client = new MongoClient('mongodb://127.0.0.1:27017/todos')
-let db
+  app.use(handler.cors());
+  app.use(handler.bodyParser());
+  app.use(handler.errors);
 
-client.connect(function (err, client) {
-  db = client.db()
+  const router = await routeInit();
+  app.use(router.routes());
+  app.use(router.allowedMethods());
 
-  dbTodoList = db.collection('todosList')
-  dbUsersList = db.collection('usersList')
+  app.listen(3000, () => console.log('Server is runing on port 3000'));
+};
 
-  app.use(cors())
-  app.use(bodyParser())
-  app.use(errors)
-  const router = initRouter(dbTodoList)
-  app.use(router.routes())
-  app.use(router.allowedMethods())
-
-  app.listen(3000, () => console.log('Server is runing on port 3000'))
-})
+export default app();
