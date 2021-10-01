@@ -1,7 +1,8 @@
 import { MongoClient } from 'mongodb';
+import config from './config.js';
 
 const mongoInit = async () => {
-  const client = new MongoClient('mongodb://127.0.0.1:27017/todos');
+  const client = new MongoClient(config.mongoURI);
 
   const connection = await client.connect();
 
