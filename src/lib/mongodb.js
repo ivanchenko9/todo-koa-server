@@ -9,8 +9,9 @@ const mongoInit = async () => {
   const db = connection.db();
   const dbTodoList = db.collection('todosList');
   const dbUsersList = db.collection('usersList');
+  const dbTokenList = db.collection('tokenList');
 
-  return { dbTodoList, dbUsersList };
+  return { dbTodoList, dbUsersList, dbTokenList };
 };
 
 export default mongoInit;

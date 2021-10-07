@@ -1,10 +1,11 @@
 import { Strategy, ExtractJwt } from 'passport-jwt';
 import getCollections from './mongodb.js';
 import config from './config.js';
+import { ObjectId } from 'mongodb';
 
-function getUserFomDB(dbUsersList, userId) {
+async function getUserFomDB(dbUsersList, userId) {
   const newPromise = new Promise((resolve, reject) => {
-    dbUsersList.find({ id: userId }).toArray((err, items) => {
+    dbUsersList.find(ObjectId(userId)).toArray((err, items) => {
       const searchedUser = items;
       resolve(searchedUser);
     });

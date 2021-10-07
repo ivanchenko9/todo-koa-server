@@ -4,6 +4,7 @@ import jwt from 'jsonwebtoken';
 import passport from 'koa-passport';
 import config from '../lib/config.js';
 import getCollections from '../lib/mongodb.js';
+import { ObjectId } from 'mongodb';
 
 const router = new Router();
 
@@ -17,6 +18,30 @@ function getDataFromDb(dbTodoList, userId) {
         const newDataList = items;
         resolve(newDataList);
       });
+  });
+
+  const serverResponse = newPromise.then((responseData) => responseData);
+  return serverResponse;
+}
+
+async function getUserFomDBbyId(dbUsersList, userId) {
+  const newPromise = new Promise((resolve, reject) => {
+    dbUsersList.find({ id: ObjectId(userId) }).toArray((err, items) => {
+      const searchedUser = items;
+      resolve(searchedUser);
+    });
+  });
+
+  const serverResponse = newPromise.then((responseData) => responseData);
+  return serverResponse;
+}
+
+async function findToken(dbTokenList, refreshToken) {
+  const newPromise = new Promise((resolve, reject) => {
+    dbTokenList.find({ refreshToken }).toArray((err, items) => {
+      const searchedUser = items;
+      resolve(searchedUser);
+    });
   });
 
   const serverResponse = newPromise.then((responseData) => responseData);
@@ -62,6 +87,7 @@ const routeInit = async () => {
   const collections = await getCollections();
   const dbTodoList = collections.dbTodoList;
   const dbUsersList = collections.dbUsersList;
+  const dbTokenList = collections.dbTokenList;
 
   router.get(
     '/todos',
@@ -79,7 +105,6 @@ const routeInit = async () => {
     async (ctx) => {
       const { id, title, isCompleted } = ctx.request.body;
       const { user } = ctx.state;
-      console.log(user);
       const insertInfo = await dbTodoList.insertOne({
         id: id,
         title: title,
@@ -124,7 +149,7 @@ const routeInit = async () => {
     '/todos/cleardone',
     passport.authenticate('jwt', { session: false }),
     async (ctx) => {
-      console.log(user);
+      const { user } = ctx.state;
       const deleteManyInfo = await dbTodoList.deleteMany({
         isCompleted: true,
         user: user._id,
@@ -150,7 +175,7 @@ const routeInit = async () => {
     },
   );
 
-  router.post('/register', async (ctx) => {
+  router.post('/registration', async (ctx) => {
     const { login, password } = ctx.request.body;
     const user = await getUserFomDbByLogin(dbUsersList, login);
     if (user.length > 0) {
@@ -171,6 +196,7 @@ const routeInit = async () => {
   router.post('/login', async (ctx) => {
     const { login, password } = ctx.request.body;
     const user = await getUserFomDbByLogin(dbUsersList, login);
+
     if (user.length === 0) {
       ctx.throw(400, 'User with such does not exist!');
     }
@@ -179,13 +205,98 @@ const routeInit = async () => {
     if (isMatch) {
       const payload = {
         _id: user[0]._id,
-        // maybe i wiil have to change object field 'id' on '_id' or back
         login: user[0].login,
       };
-      const token = jwt.sign(payload, config.secret, { expiresIn: 3600 * 24 });
-      ctx.body = { token: `Bearer ${token}` };
+
+      const accessToken = jwt.sign(payload, config.secret, {
+        expiresIn: '30m',
+      });
+      const refreshToken = jwt.sign(payload, config.secretRefresh, {
+        expiresIn: '30d',
+      });
+      const userWithToken = await getUserFomDBbyId(dbTokenList, payload._id);
+      console.log(userWithToken);
+      if (userWithToken.length > 0) {
+        console.log('has string');
+        const updateInfo = await dbTokenList.findOneAndUpdate(
+          { id: payload._id },
+          { $set: { refreshToken: refreshToken } },
+        );
+      } else {
+        console.log('has not had string yet');
+        const insertToken = await dbTokenList.insertOne({
+          id: payload._id,
+          refreshToken: refreshToken,
+        });
+      }
+
+      ctx.body = {
+        token: `Bearer ${accessToken}`,
+        refreshToken,
+      };
     } else {
       ctx.throw(400, 'Password is incorrect');
+    }
+  });
+
+  router.post(
+    '/logout',
+    passport.authenticate('jwt', { session: false }),
+    async (ctx) => {
+      const id = ctx.request.body.id;
+      const logoutInfo = await dbTokenList.deleteOne({
+        id: ObjectId(id),
+      });
+      ctx.body = logoutInfo;
+      ctx.status = 200;
+    },
+  );
+
+  router.post('/refresh', async (ctx) => {
+    const refreshToken = ctx.request.body.refreshToken;
+    if (refreshToken) {
+      try {
+        const verified = jwt.verify(refreshToken, config.secretRefresh);
+        console.log(refreshToken);
+        const usersToken = await findToken(dbTokenList, refreshToken);
+        if (verified && usersToken.length > 0) {
+          const decodeToken = jwt.decode(refreshToken);
+          const user = await getUserFomDbByLogin(
+            dbUsersList,
+            decodeToken.login,
+          );
+
+          const payload = {
+            _id: user[0]._id,
+            login: user[0].login,
+          };
+
+          const accessToken = jwt.sign(payload, config.secret, {
+            expiresIn: '30m',
+          });
+          const newRefreshToken = jwt.sign(payload, config.secretRefresh, {
+            expiresIn: '30d',
+          });
+
+          const updateInfo = await dbTokenList.findOneAndUpdate(
+            { refreshToken },
+            { $set: { refreshToken: newRefreshToken } },
+          );
+
+          ctx.body = {
+            token: `Bearer ${accessToken}`,
+            refreshToken: `Bearer ${newRefreshToken}`,
+          };
+          ctx.status = 201;
+        } else {
+          ctx.throw(401, 'Unauthorized');
+        }
+      } catch (error) {
+        console.error(error);
+        ctx.throw(400, 'Cannot refresh');
+      }
+    } else {
+      ctx.throw(400, 'Refresh token is incorrect');
     }
   });
 
