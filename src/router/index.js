@@ -38,7 +38,7 @@ async function getUserFomDBbyId(dbUsersList, userId) {
 
 async function findToken(dbTokenList, refreshToken) {
   const newPromise = new Promise((resolve, reject) => {
-    dbTokenList.find({ refreshToken }).toArray((err, items) => {
+    dbTokenList.find({ refreshToken: refreshToken }).toArray((err, items) => {
       const searchedUser = items;
       resolve(searchedUser);
     });
@@ -215,21 +215,17 @@ const routeInit = async () => {
         expiresIn: '30d',
       });
       const userWithToken = await getUserFomDBbyId(dbTokenList, payload._id);
-      console.log(userWithToken);
       if (userWithToken.length > 0) {
-        console.log('has string');
         const updateInfo = await dbTokenList.findOneAndUpdate(
           { id: payload._id },
           { $set: { refreshToken: refreshToken } },
         );
       } else {
-        console.log('has not had string yet');
         const insertToken = await dbTokenList.insertOne({
           id: payload._id,
           refreshToken: refreshToken,
         });
       }
-
       ctx.body = {
         token: `Bearer ${accessToken}`,
         refreshToken,
@@ -257,8 +253,10 @@ const routeInit = async () => {
     if (refreshToken) {
       try {
         const verified = jwt.verify(refreshToken, config.secretRefresh);
-        console.log(refreshToken);
         const usersToken = await findToken(dbTokenList, refreshToken);
+        console.log('Got refresh -> ', refreshToken);
+        console.log('Is refresh token verified -> ', verified);
+        console.log('User with this token -> ', usersToken[0]);
         if (verified && usersToken.length > 0) {
           const decodeToken = jwt.decode(refreshToken);
           const user = await getUserFomDbByLogin(
@@ -285,7 +283,7 @@ const routeInit = async () => {
 
           ctx.body = {
             token: `Bearer ${accessToken}`,
-            refreshToken: `Bearer ${newRefreshToken}`,
+            refreshToken: newRefreshToken,
           };
           ctx.status = 201;
         } else {
