@@ -3,6 +3,8 @@ import getCollections from './mongodb.js';
 import config from './config.js';
 import { ObjectId } from 'mongodb';
 
+// also add sequelize here ======================================================
+
 async function getUserFomDB(dbUsersList, userId) {
   const newPromise = new Promise((resolve, reject) => {
     dbUsersList.find(ObjectId(userId)).toArray((err, items) => {

@@ -26,8 +26,10 @@
     "koa-body": "^4.2.0",
     "koa-passport": "^4.1.4",
     "koa-router": "^10.1.1",
+    "mariadb": "^2.5.4",
     "mongodb": "^4.1.2",
     "nodemon": "^2.0.13",
-    "passport-jwt": "^4.0.0"
+    "passport-jwt": "^4.0.0",
+    "sequelize": "^6.7.0"
   }
 }
