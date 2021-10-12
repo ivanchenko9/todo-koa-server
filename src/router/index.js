@@ -21,26 +21,32 @@ async function sendDataToClient(userId) {
   return searchedTodos;
 }
 
-const completeAllTasks = async (requestedStatus, userId) => {
+const completeAllTasks = async (requestedStatus, arrWithId, userId) => {
   let updateManyTodos;
   if (requestedStatus === true) {
-    updateManyTodos = await Todos.update(
-      { isCompleted: true },
-      {
-        where: {
-          userId: userId,
+    for (const id of arrWithId) {
+      updateManyTodos = await Todos.update(
+        { isCompleted: true, updatedAt: Date.now() },
+        {
+          where: {
+            id: id,
+            userId: userId,
+          },
         },
-      },
-    );
+      );
+    }
   } else if (requestedStatus === false) {
-    updateManyTodos = await Todos.update(
-      { isCompleted: false },
-      {
-        where: {
-          userId: userId,
+    for (const id of arrWithId) {
+      updateManyTodos = await Todos.update(
+        { isCompleted: false, updatedAt: Date.now() },
+        {
+          where: {
+            id: id,
+            userId: userId,
+          },
         },
-      },
-    );
+      );
+    }
   }
   return updateManyTodos;
 };
@@ -66,6 +72,7 @@ const routeInit = async () => {
         id: id,
         title: title,
         isCompleted: isCompleted,
+        createdAt: Date.now(),
         userId: user.id,
       });
 
@@ -75,13 +82,13 @@ const routeInit = async () => {
   );
 
   router.patch(
-    '/todos/update',
+    '/todos',
     passport.authenticate('jwt', { session: false }),
     async (ctx) => {
       const { id, isCompleted } = ctx.request.body;
       const { user } = ctx.state;
       const updatedTodo = await Todos.update(
-        { isCompleted: isCompleted },
+        { isCompleted: isCompleted, updatedAt: Date.now() },
         {
           where: {
             [Op.and]: [{ id: id }, { userId: user.id }],
@@ -94,42 +101,45 @@ const routeInit = async () => {
   );
 
   router.delete(
-    '/todos/delete',
+    '/todos',
     passport.authenticate('jwt', { session: false }),
     async (ctx) => {
-      const { user } = ctx.state;
-      const deletedTodo = await Todos.destroy({
-        where: {
-          [Op.and]: [{ id: Number(ctx.request.query.id) }, { userId: user.id }],
-        },
-      });
-      ctx.body = await sendDataToClient(user.id);
-      ctx.status = 200;
+      if (ctx.request.query.id) {
+        const { user } = ctx.state;
+        const deletedTodo = await Todos.destroy({
+          where: {
+            [Op.and]: [
+              { id: Number(ctx.request.query.id) },
+              { userId: user.id },
+            ],
+          },
+        });
+        ctx.body = await sendDataToClient(user.id);
+        ctx.status = 200;
+      } else {
+        const { user } = ctx.state;
+        const deletedTodos = await Todos.destroy({
+          where: {
+            [Op.and]: [{ isCompleted: true }, { userId: user.id }],
+          },
+        });
+        ctx.body = await sendDataToClient(user.id);
+        ctx.status = 200;
+      }
     },
   );
 
-  router.delete(
-    '/todos/cleardone',
+  router.post(
+    '/todos/bulkupdate',
     passport.authenticate('jwt', { session: false }),
     async (ctx) => {
+      const { isCompletedAll, todosIdToUpdate } = ctx.request.body;
       const { user } = ctx.state;
-      const deletedTodos = await Todos.destroy({
-        where: {
-          [Op.and]: [{ isCompleted: true }, { userId: user.id }],
-        },
-      });
-      ctx.body = await sendDataToClient(user.id);
-      ctx.status = 200;
-    },
-  );
-
-  router.patch(
-    '/todos/completeall',
-    passport.authenticate('jwt', { session: false }),
-    async (ctx) => {
-      const { isCompletedAll } = ctx.request.body;
-      const { user } = ctx.state;
-      const completeAllTodos = await completeAllTasks(isCompletedAll, user.id);
+      const completeAllTodos = await completeAllTasks(
+        isCompletedAll,
+        todosIdToUpdate,
+        user.id,
+      );
       ctx.body = await sendDataToClient(user.id);
       ctx.status = 200;
     },
@@ -151,6 +161,7 @@ const routeInit = async () => {
     const newUser = await Users.create({
       login: login,
       password: hash,
+      createdAt: Date.now(),
     });
 
     ctx.body = newUser;

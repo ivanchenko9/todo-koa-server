@@ -18,6 +18,13 @@ export default function (sequelize) {
         allowNull: false,
         defaultValue: true,
       },
+      createdAt: {
+        type: Sequelize.BIGINT,
+        allowNull: false,
+      },
+      updatedAt: {
+        type: Sequelize.BIGINT,
+      },
       userId: {
         type: Sequelize.INTEGER,
         allowNull: false,

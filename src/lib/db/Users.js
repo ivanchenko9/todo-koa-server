@@ -17,6 +17,23 @@ export default function (sequelize) {
         type: Sequelize.STRING,
         allowNull: false,
       },
+      isActive: {
+        type: Sequelize.BOOLEAN,
+        allowNull: false,
+        defaultValue: true,
+      },
+      role: {
+        type: Sequelize.SMALLINT,
+        allowNull: false,
+        defaultValue: true,
+      },
+      createdAt: {
+        type: Sequelize.BIGINT,
+        allowNull: false,
+      },
+      updatedAt: {
+        type: Sequelize.BIGINT,
+      },
     },
     {
       timestamps: false,

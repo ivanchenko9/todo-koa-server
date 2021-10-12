@@ -11,18 +11,14 @@ try {
     host: 'localhost',
   });
 
-  const Todos = todosTab(sequelize);
-  const Users = usersTab(sequelize);
-  const Tokens = tokensTab(sequelize);
-
   await sequelize.authenticate();
   console.log('Connection has been established successfully.');
 
   dbData = {
     sequelize: sequelize,
-    users: Users,
-    todos: Todos,
-    tokens: Tokens,
+    users: usersTab(sequelize),
+    todos: todosTab(sequelize),
+    tokens: tokensTab(sequelize),
   };
 } catch (error) {
   console.error('Unable to connect to the database:', error);
