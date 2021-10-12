@@ -3,135 +3,55 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import passport from 'koa-passport';
 import config from '../lib/config.js';
-import getCollections from '../lib/mongodb.js';
 import db from '../lib/db/index.js';
-import { ObjectId } from 'mongodb';
+import pkg from 'sequelize';
 
 const router = new Router();
 const Users = db.users;
 const Todos = db.todos;
 const Tokens = db.tokens;
+const { Op } = pkg;
 
-function getDataFromDb(dbTodoList, userId) {
-  const newPromise = new Promise((resolve, reject) => {
-    dbTodoList
-      .find({
-        user: userId,
-      })
-      .toArray((err, items) => {
-        const newDataList = items;
-        resolve(newDataList);
-      });
+async function sendDataToClient(userId) {
+  const searchedTodos = await Todos.findAll({
+    where: {
+      userId: userId,
+    },
   });
-
-  const serverResponse = newPromise.then((responseData) => responseData);
-  return serverResponse;
+  return searchedTodos;
 }
 
-async function getUserFomDBbyId(dbUsersList, userId) {
-  const newPromise = new Promise((resolve, reject) => {
-    dbUsersList.find({ id: ObjectId(userId) }).toArray((err, items) => {
-      const searchedUser = items;
-      resolve(searchedUser);
-    });
-  });
-
-  const serverResponse = newPromise.then((responseData) => responseData);
-  return serverResponse;
-}
-
-async function findToken(dbTokenList, refreshToken) {
-  const newPromise = new Promise((resolve, reject) => {
-    dbTokenList.find({ refreshToken: refreshToken }).toArray((err, items) => {
-      const searchedUser = items;
-      resolve(searchedUser);
-    });
-  });
-
-  const serverResponse = newPromise.then((responseData) => responseData);
-  return serverResponse;
-}
-
-function getUserFomDbByLogin(dbUsersList, login) {
-  const newPromise = new Promise((resolve, reject) => {
-    dbUsersList.find({ login: login }).toArray((err, items) => {
-      const searchedUser = items;
-      resolve(searchedUser);
-    });
-  });
-
-  const serverResponse = newPromise.then((responseData) => responseData);
-  return serverResponse;
-}
-
-async function sendDataToClient(dbTodoList, userId) {
-  const rawData = await getDataFromDb(dbTodoList, userId);
-  const stringifyResponse = JSON.stringify(rawData);
-  return stringifyResponse;
-}
-
-// function sendDataToClient(userId) {
-//   const searchedTodos = await Todos.findAll({
-//     where: {
-//       userId: userId,
-//     },
-//   });
-//   return searchedUser;
-// }
-
-const completeAllTasks = async (requestedStatus, dbTodoList, userId) => {
-  let updateManyInfo;
+const completeAllTasks = async (requestedStatus, userId) => {
+  let updateManyTodos;
   if (requestedStatus === true) {
-    updateManyInfo = await dbTodoList.updateMany(
-      { user: userId },
-      { $set: { isCompleted: true } },
+    updateManyTodos = await Todos.update(
+      { isCompleted: true },
+      {
+        where: {
+          userId: userId,
+        },
+      },
     );
-    return;
   } else if (requestedStatus === false) {
-    updateManyInfo = await dbTodoList.updateMany(
-      { user: userId },
-      { $set: { isCompleted: false } },
+    updateManyTodos = await Todos.update(
+      { isCompleted: false },
+      {
+        where: {
+          userId: userId,
+        },
+      },
     );
-    return updateManyInfo;
   }
+  return updateManyTodos;
 };
 
-// const completeAllTasks = async (requestedStatus, userId) => {
-//   let updateManyTodos;
-//   if (requestedStatus === true) {
-//     updateManyTodos = await Todos.update(
-//       { isCompleted: true },
-//       {
-//         where: {
-//           userId: userId,
-//         },
-//       },
-//     );
-//   } else if (requestedStatus === false) {
-//     updateManyTodos = await Todos.update(
-//       { isCompleted: false },
-//       {
-//         where: {
-//           userId: userId,
-//         },
-//       },
-//     );
-//     return updateManyInfo;
-//   }
-// };
-
 const routeInit = async () => {
-  const collections = await getCollections();
-  const dbTodoList = collections.dbTodoList;
-  const dbUsersList = collections.dbUsersList;
-  const dbTokenList = collections.dbTokenList;
-
   router.get(
     '/todos',
     passport.authenticate('jwt', { session: false }),
     async (ctx) => {
       const { user } = ctx.state;
-      ctx.body = await sendDataToClient(dbTodoList, user._id);
+      ctx.body = await sendDataToClient(user.id);
       ctx.status = 200;
     },
   );
@@ -142,21 +62,14 @@ const routeInit = async () => {
     async (ctx) => {
       const { id, title, isCompleted } = ctx.request.body;
       const { user } = ctx.state;
-      const insertInfo = await dbTodoList.insertOne({
+      const createdTodo = await Todos.create({
         id: id,
         title: title,
         isCompleted: isCompleted,
-        user: user._id,
+        userId: user.id,
       });
 
-      // const createdTodo = await Todos.create({
-      //   id: id,
-      //   title: title,
-      //   isCompleted: isCompleted,
-      //   userId: String(user._id),
-      // })
-
-      ctx.body = await sendDataToClient(dbTodoList, user._id);
+      ctx.body = await sendDataToClient(user.id);
       ctx.status = 201;
     },
   );
@@ -167,17 +80,15 @@ const routeInit = async () => {
     async (ctx) => {
       const { id, isCompleted } = ctx.request.body;
       const { user } = ctx.state;
-      const updateInfo = await dbTodoList.findOneAndUpdate(
-        { id: id, user: user._id },
-        { $set: { isCompleted: isCompleted } },
+      const updatedTodo = await Todos.update(
+        { isCompleted: isCompleted },
+        {
+          where: {
+            [Op.and]: [{ id: id }, { userId: user.id }],
+          },
+        },
       );
-
-      // const updatedTodo = await Todos.update({ isCompleted: isCompleted }, {
-      //   where: {
-      //     [Op.and]: [{ id: id }, { userId: user._id }]
-      //   }
-      // });
-      ctx.body = await sendDataToClient(dbTodoList, user._id);
+      ctx.body = await sendDataToClient(user.id);
       ctx.status = 200;
     },
   );
@@ -187,20 +98,12 @@ const routeInit = async () => {
     passport.authenticate('jwt', { session: false }),
     async (ctx) => {
       const { user } = ctx.state;
-      const deleteInfo = await dbTodoList.deleteOne({
-        id: Number(ctx.request.query.id),
-        user: user._id,
+      const deletedTodo = await Todos.destroy({
+        where: {
+          [Op.and]: [{ id: Number(ctx.request.query.id) }, { userId: user.id }],
+        },
       });
-
-      // const deletedTodo = await Todos.destroy({
-      //   where: {
-      //     [Op.and]: [
-      //       { id: Number(ctx.request.query.id) },
-      //       { userId: user._id },
-      //     ],
-      //   },
-      // });
-      ctx.body = await sendDataToClient(dbTodoList, user._id);
+      ctx.body = await sendDataToClient(user.id);
       ctx.status = 200;
     },
   );
@@ -210,17 +113,12 @@ const routeInit = async () => {
     passport.authenticate('jwt', { session: false }),
     async (ctx) => {
       const { user } = ctx.state;
-      const deleteManyInfo = await dbTodoList.deleteMany({
-        isCompleted: true,
-        user: user._id,
+      const deletedTodos = await Todos.destroy({
+        where: {
+          [Op.and]: [{ isCompleted: true }, { userId: user.id }],
+        },
       });
-
-      // const deletedTodos = await Todos.destroy({
-      //   where: {
-      //     [Op.and]: [{ isCompleted: true }, { userId: user._id }],
-      //   },
-      // });
-      ctx.body = await sendDataToClient(dbTodoList, user._id);
+      ctx.body = await sendDataToClient(user.id);
       ctx.status = 200;
     },
   );
@@ -231,49 +129,41 @@ const routeInit = async () => {
     async (ctx) => {
       const { isCompletedAll } = ctx.request.body;
       const { user } = ctx.state;
-      // const completeAllTodos = await completeAllTasks(isCompletedAll, user._id)
-      const completeAllInfo = await completeAllTasks(
-        isCompletedAll,
-        dbTodoList,
-        user._id,
-      );
-      ctx.body = await sendDataToClient(dbTodoList, user._id);
+      const completeAllTodos = await completeAllTasks(isCompletedAll, user.id);
+      ctx.body = await sendDataToClient(user.id);
       ctx.status = 200;
     },
   );
 
   router.post('/registration', async (ctx) => {
     const { login, password } = ctx.request.body;
-    const user = await getUserFomDbByLogin(dbUsersList, login);
+    const user = await Users.findAll({
+      where: {
+        login: login,
+      },
+    });
     if (user.length > 0) {
       ctx.throw(400, 'User with such login is already exist!');
     }
     const salt = await bcrypt.genSalt(10);
     const hash = await bcrypt.hash(password, salt);
 
-    const isertUserInfo = await dbUsersList.insertOne({
+    const newUser = await Users.create({
       login: login,
       password: hash,
     });
 
-    // const newUser = await Users.create({
-    //   login: login,
-    //   password: hash,
-    // })
-
-    ctx.body = await sendDataToClient(dbUsersList, user._id);
+    ctx.body = newUser;
     ctx.status = 201;
   });
 
   router.post('/login', async (ctx) => {
     const { login, password } = ctx.request.body;
-    const user = await getUserFomDbByLogin(dbUsersList, login);
-
-    // const searchedUser = await Users.findAll({
-    //   where: {
-    //     login: login
-    //   }
-    // });
+    const user = await Users.findAll({
+      where: {
+        login: login,
+      },
+    });
     if (user.length === 0) {
       ctx.throw(400, 'User with such does not exist!');
     }
@@ -281,7 +171,7 @@ const routeInit = async () => {
     const isMatch = await bcrypt.compare(password, user[0].password);
     if (isMatch) {
       const payload = {
-        _id: user[0]._id,
+        id: user[0].id,
         login: user[0].login,
       };
 
@@ -291,32 +181,23 @@ const routeInit = async () => {
       const refreshToken = jwt.sign(payload, config.secretRefresh, {
         expiresIn: '30d',
       });
-      // const searchedUserById = await Users.findAll({
-      //   where: {
-      //     id:  payload._id
-      //   },
-      // });
-      const userWithToken = await getUserFomDBbyId(dbTokenList, payload._id);
+      const userWithToken = await Tokens.findAll({
+        where: {
+          userId: payload.id,
+        },
+      });
       if (userWithToken.length > 0) {
-        // const updatedToken = await Tokens.update(
-        //   { refreshToken: refreshToken },
-        //   {
-        //     where: {
-        //       id: payload._id,
-        //     },
-        //   },
-        // );
-        const updateInfo = await dbTokenList.findOneAndUpdate(
-          { id: payload._id },
-          { $set: { refreshToken: refreshToken } },
+        const updatedToken = await Tokens.update(
+          { refreshToken: refreshToken },
+          {
+            where: {
+              id: payload.id,
+            },
+          },
         );
       } else {
-        //   const createdToken = await Tokens.create({
-        //   id: payload._id,
-        //   refreshToken: refreshToken
-        // })
-        const insertToken = await dbTokenList.insertOne({
-          id: payload._id,
+        const createdToken = await Tokens.create({
+          userId: payload.id,
           refreshToken: refreshToken,
         });
       }
@@ -334,14 +215,12 @@ const routeInit = async () => {
     passport.authenticate('jwt', { session: false }),
     async (ctx) => {
       const id = ctx.request.body.id;
-      // const logoutInfo = await Tokens.destroy({
-      //   where: {
-      //    id: id,
-      //   },
-      // });
-      const logoutInfo = await dbTokenList.deleteOne({
-        id: ObjectId(id),
+      const logoutInfo = await Tokens.destroy({
+        where: {
+          userId: id,
+        },
       });
+
       ctx.body = logoutInfo;
       ctx.status = 200;
     },
@@ -352,30 +231,25 @@ const routeInit = async () => {
     if (refreshToken) {
       try {
         const verified = jwt.verify(refreshToken, config.secretRefresh);
-        const usersToken = await findToken(dbTokenList, refreshToken);
-        // const searchedUser = await Tokens.findAll({
-        //   where: {
-        //     refreshToken: refreshToken
-        //   }
-        // });
+        const usersToken = await Tokens.findAll({
+          where: {
+            refreshToken: refreshToken,
+          },
+        });
         console.log('Got refresh -> ', refreshToken);
         console.log('Is refresh token verified -> ', verified);
         console.log('User with this token -> ', usersToken[0]);
         if (verified && usersToken.length > 0) {
           const decodeToken = jwt.decode(refreshToken);
-          // const searchedUser = await Users.findAll({
-          //   where: {
-          //     login: login
-          //   }
-          // });
-          const user = await getUserFomDbByLogin(
-            dbUsersList,
-            decodeToken.login,
-          );
+          const searchedUser = await Users.findAll({
+            where: {
+              login: decodeToken.login,
+            },
+          });
 
           const payload = {
-            _id: user[0]._id,
-            login: user[0].login,
+            id: searchedUser[0].id,
+            login: searchedUser[0].login,
           };
 
           const accessToken = jwt.sign(payload, config.secret, {
@@ -385,18 +259,13 @@ const routeInit = async () => {
             expiresIn: '30d',
           });
 
-          // const updatedToken = await Tokens.update(
-          //   { refreshToken: newRefreshToken },
-          //   {
-          //     where: {
-          //       refreshToken:refreshToken,
-          //     },
-          //   },
-          // );
-
-          const updateInfo = await dbTokenList.findOneAndUpdate(
-            { refreshToken },
-            { $set: { refreshToken: newRefreshToken } },
+          const updatedToken = await Tokens.update(
+            { refreshToken: newRefreshToken },
+            {
+              where: {
+                refreshToken: refreshToken,
+              },
+            },
           );
 
           ctx.body = {

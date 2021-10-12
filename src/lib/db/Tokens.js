@@ -10,7 +10,7 @@ export default function (sequelize) {
         autoIncrement: true,
       },
       userId: {
-        type: Sequelize.STRING,
+        type: Sequelize.INTEGER,
         allowNull: false,
       },
       refreshToken: {

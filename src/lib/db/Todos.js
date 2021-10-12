@@ -19,7 +19,7 @@ export default function (sequelize) {
         defaultValue: true,
       },
       userId: {
-        type: Sequelize.STRING,
+        type: Sequelize.INTEGER,
         allowNull: false,
       },
     },

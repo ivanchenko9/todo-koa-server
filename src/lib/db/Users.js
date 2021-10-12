@@ -5,18 +5,17 @@ export default function (sequelize) {
     'users',
     {
       id: {
-        type: Sequelize.STRING,
+        type: Sequelize.INTEGER,
         primaryKey: true,
-        allowNull: false,
+        autoIncrement: true,
       },
       login: {
         type: Sequelize.STRING,
         allowNull: false,
       },
       password: {
-        type: Sequelize.BOOLEAN,
+        type: Sequelize.STRING,
         allowNull: false,
-        defaultValue: true,
       },
     },
     {
