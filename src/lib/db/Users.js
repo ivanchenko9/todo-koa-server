@@ -17,8 +17,12 @@ export default function (sequelize) {
         type: Sequelize.STRING,
         allowNull: false,
       },
+      email: {
+        type: Sequelize.STRING,
+        allowNull: false,
+      },
       isActive: {
-        type: Sequelize.BOOLEAN,
+        type: Sequelize.SMALLINT,
         allowNull: false,
         defaultValue: true,
       },

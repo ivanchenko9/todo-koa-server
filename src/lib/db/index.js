@@ -20,6 +20,12 @@ try {
     todos: todosTab(sequelize),
     tokens: tokensTab(sequelize),
   };
+
+  dbData.users.hasMany(dbData.todos);
+  dbData.users.hasOne(dbData.tokens);
+
+  dbData.todos.belongsTo(dbData.users);
+  dbData.tokens.belongsTo(dbData.users);
 } catch (error) {
   console.error('Unable to connect to the database:', error);
 }

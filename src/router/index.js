@@ -12,6 +12,24 @@ const Todos = db.todos;
 const Tokens = db.tokens;
 const { Op } = pkg;
 
+function validationUsersData(email, login, password) {
+  const re =
+    /^(([^<>()[\]\\.,;:\s@"]+(\.[^<>()[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/;
+  if (!re.test(String(email).toLowerCase())) {
+    console.log('Email is incorrect!');
+    return false;
+  }
+  if (login.length < 4 || login.length > 15) {
+    console.log('Login is incorrect!');
+    return false;
+  }
+  if (password.length < 4 || password.length > 20) {
+    console.log('Password is incorrect!');
+    return false;
+  }
+  return true;
+}
+
 async function sendDataToClient(userId) {
   const searchedTodos = await Todos.findAll({
     where: {
@@ -101,15 +119,15 @@ const routeInit = async () => {
   );
 
   router.delete(
-    '/todos',
+    '/todos/:id',
     passport.authenticate('jwt', { session: false }),
     async (ctx) => {
-      if (ctx.request.query.id) {
+      if (ctx.request.params.id) {
         const { user } = ctx.state;
         const deletedTodo = await Todos.destroy({
           where: {
             [Op.and]: [
-              { id: Number(ctx.request.query.id) },
+              { id: Number(ctx.request.params.id) },
               { userId: user.id },
             ],
           },
@@ -146,26 +164,32 @@ const routeInit = async () => {
   );
 
   router.post('/registration', async (ctx) => {
-    const { login, password } = ctx.request.body;
-    const user = await Users.findAll({
-      where: {
+    const { email, login, password } = ctx.request.body;
+    if (validationUsersData(email, login, password)) {
+      const user = await Users.findAll({
+        where: {
+          login: login,
+        },
+      });
+      if (user.length > 0) {
+        ctx.throw(400, 'User with such login is already exist!');
+      }
+      const salt = await bcrypt.genSalt(10);
+      const hash = await bcrypt.hash(password, salt);
+
+      const newUser = await Users.create({
+        email: email,
         login: login,
-      },
-    });
-    if (user.length > 0) {
-      ctx.throw(400, 'User with such login is already exist!');
+        password: hash,
+        createdAt: Date.now(),
+      });
+
+      ctx.body = newUser;
+      ctx.status = 201;
+    } else {
+      ctx.body = { message: 'Users data is incorrect!' };
+      ctx.status = 400;
     }
-    const salt = await bcrypt.genSalt(10);
-    const hash = await bcrypt.hash(password, salt);
-
-    const newUser = await Users.create({
-      login: login,
-      password: hash,
-      createdAt: Date.now(),
-    });
-
-    ctx.body = newUser;
-    ctx.status = 201;
   });
 
   router.post('/login', async (ctx) => {
@@ -184,6 +208,7 @@ const routeInit = async () => {
       const payload = {
         id: user[0].id,
         login: user[0].login,
+        email: user[0].email,
       };
 
       const accessToken = jwt.sign(payload, config.secret, {
@@ -261,6 +286,7 @@ const routeInit = async () => {
           const payload = {
             id: searchedUser[0].id,
             login: searchedUser[0].login,
+            email: searchedUser[0].email,
           };
 
           const accessToken = jwt.sign(payload, config.secret, {
