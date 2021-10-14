@@ -69,7 +69,41 @@ const completeAllTasks = async (requestedStatus, arrWithId, userId) => {
   return updateManyTodos;
 };
 
-const routeInit = async () => {
+const routeInit = async (socket) => {
+  // socket.on('get-todos', async () => {
+  //   const newArr = await sendDataToClient(user.id);
+  //   socket.broadcast.emit('got-todos', newArr);
+  //   console.log('Send body in "get-todos" req from user ->', socket.id);
+  // });
+  // socket.on('create-todo', async () => {
+  //   const newArr = await sendDataToClient(user.id);
+  //   socket.broadcast.emit('new-todo-added', newArr);
+  //   console.log('Send body in "new-todo-added" req from user ->', socket.id);
+  // });
+  // socket.on('update-todo', async () => {
+  //   const newArr = await sendDataToClient(user.id);
+  //   socket.broadcast.emit('todo-updated', ctx.body);
+  //   console.log('Send body in "todo-updated" req from user ->', socket.id);
+  // });
+  // socket.on('delete-todo', async () => {
+  //   const newArr = await sendDataToClient(user.id);
+  //   socket.broadcast.emit('todo-deleted', newArr);
+  //   console.log('Send body in "todo-deleted" req from user ->', socket.id);
+  // });
+  // socket.on('clear-done', async () => {
+  //   const newArr = await sendDataToClient(user.id);
+  //   socket.broadcast.emit('done-were-cleared', newArr);
+  //   console.log('Send body in "done-were-cleared" req from user ->', socket.id);
+  // });
+  // socket.on('change-is-confirmed-all-status', async () => {
+  //   const newArr = await sendDataToClient(user.id);
+  //   socket.broadcast.emit('change-is-confirmed-all-status-changed', newArr);
+  //   console.log(
+  //     'Send body in "change-is-confirmed-all-status-changed" req from user ->',
+  //     socket.id,
+  //   );
+  // });
+
   router.get(
     '/todos',
     passport.authenticate('jwt', { session: false }),
@@ -77,6 +111,7 @@ const routeInit = async () => {
       const { user } = ctx.state;
       ctx.body = await sendDataToClient(user.id);
       ctx.status = 200;
+      socket.broadcast.emit('got-todos', ctx.body);
     },
   );
 
@@ -95,6 +130,7 @@ const routeInit = async () => {
       });
 
       ctx.body = await sendDataToClient(user.id);
+      socket.broadcast.emit('new-todo-added', ctx.body);
       ctx.status = 201;
     },
   );
@@ -115,6 +151,7 @@ const routeInit = async () => {
       );
       ctx.body = await sendDataToClient(user.id);
       ctx.status = 200;
+      socket.broadcast.emit('todo-updated', ctx.body);
     },
   );
 
@@ -134,6 +171,7 @@ const routeInit = async () => {
         });
         ctx.body = await sendDataToClient(user.id);
         ctx.status = 200;
+        socket.broadcast.emit('todo-deleted', ctx.body);
       } else {
         const { user } = ctx.state;
         const deletedTodos = await Todos.destroy({
@@ -143,6 +181,7 @@ const routeInit = async () => {
         });
         ctx.body = await sendDataToClient(user.id);
         ctx.status = 200;
+        socket.broadcast.emit('done-were-cleared', ctx.body);
       }
     },
   );
@@ -160,6 +199,7 @@ const routeInit = async () => {
       );
       ctx.body = await sendDataToClient(user.id);
       ctx.status = 200;
+      socket.broadcast.emit('change-is-confirmed-all-status-changed', ctx.body);
     },
   );
 
@@ -272,9 +312,6 @@ const routeInit = async () => {
             refreshToken: refreshToken,
           },
         });
-        console.log('Got refresh -> ', refreshToken);
-        console.log('Is refresh token verified -> ', verified);
-        console.log('User with this token -> ', usersToken[0]);
         if (verified && usersToken.length > 0) {
           const decodeToken = jwt.decode(refreshToken);
           const searchedUser = await Users.findAll({
