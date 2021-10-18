@@ -265,21 +265,25 @@ const routeInit = async (socket) => {
       });
       const userWithToken = await Tokens.findAll({
         where: {
-          userId: payload.id,
+          [Op.and]: [{ userId: payload.id }, { socketId: socket.id }],
         },
       });
       if (userWithToken.length > 0) {
         const updatedToken = await Tokens.update(
           { refreshToken: refreshToken },
           {
+            // where: {
+            //   id: payload.id,
+            // },
             where: {
-              id: payload.id,
+              [Op.and]: [{ userId: payload.id }, { socketId: socket.id }],
             },
           },
         );
       } else {
         const createdToken = await Tokens.create({
           userId: payload.id,
+          socketId: socket.id,
           refreshToken: refreshToken,
         });
       }
@@ -300,7 +304,7 @@ const routeInit = async (socket) => {
       const id = ctx.request.body.id;
       const logoutInfo = await Tokens.destroy({
         where: {
-          userId: id,
+          [Op.and]: [{ userId: id }, { socketId: socket.id }],
         },
       });
 
@@ -317,7 +321,7 @@ const routeInit = async (socket) => {
         const verified = jwt.verify(refreshToken, config.secretRefresh);
         const usersToken = await Tokens.findAll({
           where: {
-            refreshToken: refreshToken,
+            [Op.and]: [{ refreshToken: refreshToken }, { socketId: socket.id }],
           },
         });
         if (verified && usersToken.length > 0) {
@@ -345,7 +349,10 @@ const routeInit = async (socket) => {
             { refreshToken: newRefreshToken },
             {
               where: {
-                refreshToken: refreshToken,
+                [Op.and]: [
+                  { refreshToken: refreshToken },
+                  { socketId: socket.id },
+                ],
               },
             },
           );

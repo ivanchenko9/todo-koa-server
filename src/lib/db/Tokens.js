@@ -13,6 +13,10 @@ export default function (sequelize) {
         type: Sequelize.INTEGER,
         allowNull: false,
       },
+      socketId: {
+        type: Sequelize.STRING,
+        allowNull: false,
+      },
       refreshToken: {
         type: Sequelize.STRING,
         allowNull: false,
