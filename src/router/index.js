@@ -111,7 +111,7 @@ const routeInit = async (socket) => {
       const { user } = ctx.state;
       ctx.body = await sendDataToClient(user.id);
       ctx.status = 200;
-      socket.broadcast.emit('got-todos', ctx.body);
+      socket.to(user.id).emit('got-todos', ctx.body);
     },
   );
 
@@ -130,7 +130,7 @@ const routeInit = async (socket) => {
       });
 
       ctx.body = await sendDataToClient(user.id);
-      socket.broadcast.emit('new-todo-added', ctx.body);
+      socket.to(user.id).emit('new-todo-added', ctx.body);
       ctx.status = 201;
     },
   );
@@ -151,7 +151,7 @@ const routeInit = async (socket) => {
       );
       ctx.body = await sendDataToClient(user.id);
       ctx.status = 200;
-      socket.broadcast.emit('todo-updated', ctx.body);
+      socket.to(user.id).emit('todo-updated', ctx.body);
     },
   );
 
@@ -159,30 +159,34 @@ const routeInit = async (socket) => {
     '/todos/:id',
     passport.authenticate('jwt', { session: false }),
     async (ctx) => {
-      if (ctx.request.params.id) {
-        const { user } = ctx.state;
-        const deletedTodo = await Todos.destroy({
-          where: {
-            [Op.and]: [
-              { id: Number(ctx.request.params.id) },
-              { userId: user.id },
-            ],
-          },
-        });
-        ctx.body = await sendDataToClient(user.id);
-        ctx.status = 200;
-        socket.broadcast.emit('todo-deleted', ctx.body);
-      } else {
-        const { user } = ctx.state;
-        const deletedTodos = await Todos.destroy({
-          where: {
-            [Op.and]: [{ isCompleted: true }, { userId: user.id }],
-          },
-        });
-        ctx.body = await sendDataToClient(user.id);
-        ctx.status = 200;
-        socket.broadcast.emit('done-were-cleared', ctx.body);
-      }
+      const { user } = ctx.state;
+      const deletedTodo = await Todos.destroy({
+        where: {
+          [Op.and]: [
+            { id: Number(ctx.request.params.id) },
+            { userId: user.id },
+          ],
+        },
+      });
+      ctx.body = await sendDataToClient(user.id);
+      ctx.status = 200;
+      socket.to(user.id).emit('todo-deleted', ctx.body);
+    },
+  );
+
+  router.delete(
+    '/todos',
+    passport.authenticate('jwt', { session: false }),
+    async (ctx) => {
+      const { user } = ctx.state;
+      const deletedTodos = await Todos.destroy({
+        where: {
+          [Op.and]: [{ isCompleted: true }, { userId: user.id }],
+        },
+      });
+      ctx.body = await sendDataToClient(user.id);
+      ctx.status = 200;
+      socket.to(user.id).emit('done-were-cleared', ctx.body);
     },
   );
 
@@ -199,7 +203,9 @@ const routeInit = async (socket) => {
       );
       ctx.body = await sendDataToClient(user.id);
       ctx.status = 200;
-      socket.broadcast.emit('change-is-confirmed-all-status-changed', ctx.body);
+      socket
+        .to(user.id)
+        .emit('change-is-confirmed-all-status-changed', ctx.body);
     },
   );
 
@@ -290,6 +296,7 @@ const routeInit = async (socket) => {
     '/logout',
     passport.authenticate('jwt', { session: false }),
     async (ctx) => {
+      const { user } = ctx.state;
       const id = ctx.request.body.id;
       const logoutInfo = await Tokens.destroy({
         where: {
@@ -299,6 +306,7 @@ const routeInit = async (socket) => {
 
       ctx.body = logoutInfo;
       ctx.status = 200;
+      socket.leave(user.id);
     },
   );
 

@@ -19,6 +19,9 @@ const app = async () => {
 
   io.on('connection', async (socket) => {
     console.log('User socket id is ', socket.id);
+    socket.on('join-room', (userId) => {
+      socket.join(userId);
+    });
 
     app.use(handler.cors());
     app.use(handler.bodyParser());
