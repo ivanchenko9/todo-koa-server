@@ -27,8 +27,20 @@ const app = async () => {
     app.use(handler.bodyParser());
     app.use(handler.errors);
     app.use(handler.passportInIt);
+    app.use(async (ctx, next) => {
+      const socketSend = (userId, body) => {
+        socket.to(userId).emit('notification', body);
+      };
+      const socketLeave = (userId) => {
+        socket.leave(userId);
+      };
+      ctx.socketLeave = socketLeave;
+      ctx.socketId = socket.id;
+      ctx.socketSend = socketSend;
+      await next();
+    });
 
-    const router = await routeInit(socket);
+    const router = await routeInit();
     app.use(router.routes());
     app.use(router.allowedMethods());
   });

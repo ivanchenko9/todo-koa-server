@@ -22,7 +22,7 @@ try {
   };
 
   dbData.users.hasMany(dbData.todos);
-  dbData.users.hasOne(dbData.tokens);
+  dbData.users.hasMany(dbData.tokens);
 
   dbData.todos.belongsTo(dbData.users);
   dbData.tokens.belongsTo(dbData.users);

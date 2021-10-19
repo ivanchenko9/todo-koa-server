@@ -5,6 +5,14 @@ import passport from 'koa-passport';
 import config from '../lib/config.js';
 import db from '../lib/db/index.js';
 import pkg from 'sequelize';
+import {
+  GOT_TODOS,
+  NEW_TODO_ADDED,
+  TODO_UPDATED,
+  TODO_DELETED,
+  DONE_WERE_CLEARED,
+  CHANGE_IS_CONFIRMED_ALL_STATUS_CHANGED,
+} from './socketTypes.js';
 
 const router = new Router();
 const Users = db.users;
@@ -69,41 +77,7 @@ const completeAllTasks = async (requestedStatus, arrWithId, userId) => {
   return updateManyTodos;
 };
 
-const routeInit = async (socket) => {
-  // socket.on('get-todos', async () => {
-  //   const newArr = await sendDataToClient(user.id);
-  //   socket.broadcast.emit('got-todos', newArr);
-  //   console.log('Send body in "get-todos" req from user ->', socket.id);
-  // });
-  // socket.on('create-todo', async () => {
-  //   const newArr = await sendDataToClient(user.id);
-  //   socket.broadcast.emit('new-todo-added', newArr);
-  //   console.log('Send body in "new-todo-added" req from user ->', socket.id);
-  // });
-  // socket.on('update-todo', async () => {
-  //   const newArr = await sendDataToClient(user.id);
-  //   socket.broadcast.emit('todo-updated', ctx.body);
-  //   console.log('Send body in "todo-updated" req from user ->', socket.id);
-  // });
-  // socket.on('delete-todo', async () => {
-  //   const newArr = await sendDataToClient(user.id);
-  //   socket.broadcast.emit('todo-deleted', newArr);
-  //   console.log('Send body in "todo-deleted" req from user ->', socket.id);
-  // });
-  // socket.on('clear-done', async () => {
-  //   const newArr = await sendDataToClient(user.id);
-  //   socket.broadcast.emit('done-were-cleared', newArr);
-  //   console.log('Send body in "done-were-cleared" req from user ->', socket.id);
-  // });
-  // socket.on('change-is-confirmed-all-status', async () => {
-  //   const newArr = await sendDataToClient(user.id);
-  //   socket.broadcast.emit('change-is-confirmed-all-status-changed', newArr);
-  //   console.log(
-  //     'Send body in "change-is-confirmed-all-status-changed" req from user ->',
-  //     socket.id,
-  //   );
-  // });
-
+const routeInit = async () => {
   router.get(
     '/todos',
     passport.authenticate('jwt', { session: false }),
@@ -111,7 +85,12 @@ const routeInit = async (socket) => {
       const { user } = ctx.state;
       ctx.body = await sendDataToClient(user.id);
       ctx.status = 200;
-      socket.to(user.id).emit('got-todos', ctx.body);
+      const body = {
+        type: GOT_TODOS,
+        payload: ctx.body,
+      };
+
+      ctx.socketSend(user.id, body);
     },
   );
 
@@ -128,10 +107,14 @@ const routeInit = async (socket) => {
         createdAt: Date.now(),
         userId: user.id,
       });
-
       ctx.body = await sendDataToClient(user.id);
-      socket.to(user.id).emit('new-todo-added', ctx.body);
+
       ctx.status = 201;
+      const body = {
+        type: NEW_TODO_ADDED,
+        payload: ctx.body,
+      };
+      ctx.socketSend(user.id, body);
     },
   );
 
@@ -151,7 +134,12 @@ const routeInit = async (socket) => {
       );
       ctx.body = await sendDataToClient(user.id);
       ctx.status = 200;
-      socket.to(user.id).emit('todo-updated', ctx.body);
+
+      const body = {
+        type: TODO_UPDATED,
+        payload: ctx.body,
+      };
+      ctx.socketSend(user.id, body);
     },
   );
 
@@ -170,7 +158,12 @@ const routeInit = async (socket) => {
       });
       ctx.body = await sendDataToClient(user.id);
       ctx.status = 200;
-      socket.to(user.id).emit('todo-deleted', ctx.body);
+
+      const body = {
+        type: TODO_DELETED,
+        payload: ctx.body,
+      };
+      ctx.socketSend(user.id, body);
     },
   );
 
@@ -186,7 +179,12 @@ const routeInit = async (socket) => {
       });
       ctx.body = await sendDataToClient(user.id);
       ctx.status = 200;
-      socket.to(user.id).emit('done-were-cleared', ctx.body);
+
+      const body = {
+        type: DONE_WERE_CLEARED,
+        payload: ctx.body,
+      };
+      ctx.socketSend(user.id, body);
     },
   );
 
@@ -203,9 +201,12 @@ const routeInit = async (socket) => {
       );
       ctx.body = await sendDataToClient(user.id);
       ctx.status = 200;
-      socket
-        .to(user.id)
-        .emit('change-is-confirmed-all-status-changed', ctx.body);
+
+      const body = {
+        type: CHANGE_IS_CONFIRMED_ALL_STATUS_CHANGED,
+        payload: ctx.body,
+      };
+      ctx.socketSend(user.id, body);
     },
   );
 
@@ -265,25 +266,22 @@ const routeInit = async (socket) => {
       });
       const userWithToken = await Tokens.findAll({
         where: {
-          [Op.and]: [{ userId: payload.id }, { socketId: socket.id }],
+          [Op.and]: [{ userId: payload.id }, { socketId: ctx.socketId }],
         },
       });
       if (userWithToken.length > 0) {
         const updatedToken = await Tokens.update(
           { refreshToken: refreshToken },
           {
-            // where: {
-            //   id: payload.id,
-            // },
             where: {
-              [Op.and]: [{ userId: payload.id }, { socketId: socket.id }],
+              [Op.and]: [{ userId: payload.id }, { socketId: ctx.socketId }],
             },
           },
         );
       } else {
         const createdToken = await Tokens.create({
           userId: payload.id,
-          socketId: socket.id,
+          socketId: ctx.socketId,
           refreshToken: refreshToken,
         });
       }
@@ -304,13 +302,14 @@ const routeInit = async (socket) => {
       const id = ctx.request.body.id;
       const logoutInfo = await Tokens.destroy({
         where: {
-          [Op.and]: [{ userId: id }, { socketId: socket.id }],
+          [Op.and]: [{ userId: id }, { socketId: ctx.socketId }],
         },
       });
 
       ctx.body = logoutInfo;
       ctx.status = 200;
-      socket.leave(user.id);
+      ctx.socketLeave(user.id);
+      // socket.leave(user.id);
     },
   );
 
@@ -321,7 +320,10 @@ const routeInit = async (socket) => {
         const verified = jwt.verify(refreshToken, config.secretRefresh);
         const usersToken = await Tokens.findAll({
           where: {
-            [Op.and]: [{ refreshToken: refreshToken }, { socketId: socket.id }],
+            [Op.and]: [
+              { refreshToken: refreshToken },
+              { socketId: ctx.socketId },
+            ],
           },
         });
         if (verified && usersToken.length > 0) {
@@ -351,7 +353,7 @@ const routeInit = async (socket) => {
               where: {
                 [Op.and]: [
                   { refreshToken: refreshToken },
-                  { socketId: socket.id },
+                  { socketId: ctx.socketId },
                 ],
               },
             },
