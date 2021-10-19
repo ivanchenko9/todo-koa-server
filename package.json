@@ -24,6 +24,7 @@
     "jsonwebtoken": "^8.5.1",
     "koa": "^2.13.3",
     "koa-body": "^4.2.0",
+    "koa-combine-routers": "^4.0.2",
     "koa-passport": "^4.1.4",
     "koa-router": "^10.1.1",
     "mariadb": "^2.5.4",
@@ -32,5 +33,9 @@
     "passport-jwt": "^4.0.0",
     "sequelize": "^6.7.0",
     "socket.io": "^4.2.0"
+  },
+  "devDependencies": {
+    "jest": "^27.3.1",
+    "supertest": "^6.1.6"
   }
 }

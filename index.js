@@ -1,2 +1,2 @@
-import '@babel/register'
-import './app.js'
+import '@babel/register';
+import './main.js';
