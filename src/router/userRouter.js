@@ -49,12 +49,42 @@ router.post('/registration', async (ctx) => {
       createdAt: Date.now(),
     });
 
-    ctx.body = newUser;
+    const responseBody = {
+      isActive: newUser.dataValues.isActive,
+      role: newUser.dataValues.role,
+      email: newUser.dataValues.email,
+      login: newUser.dataValues.login,
+    };
+
+    ctx.body = responseBody;
     ctx.status = 201;
   } else {
     ctx.body = { message: 'Users data is incorrect!' };
     ctx.status = 400;
   }
+});
+
+router.post('/delete', async (ctx) => {
+  const { login } = ctx.request.body;
+
+  const user = await Users.findAll({
+    where: {
+      login: login,
+    },
+  });
+
+  if (user.length === 0) {
+    ctx.throw(400, 'User with such login does not exist!');
+  }
+
+  const deletedUser = await Users.destroy({
+    where: {
+      login: login,
+    },
+  });
+
+  ctx.body = { message: 'User succesfull deleted!' };
+  ctx.status = 200;
 });
 
 router.post('/login', async (ctx) => {
@@ -65,7 +95,7 @@ router.post('/login', async (ctx) => {
     },
   });
   if (user.length === 0) {
-    ctx.throw(400, 'User with such does not exist!');
+    ctx.throw(400, 'User with such login does not exist!');
   }
 
   const isMatch = await bcrypt.compare(password, user[0].password);
@@ -107,6 +137,7 @@ router.post('/login', async (ctx) => {
       token: `Bearer ${accessToken}`,
       refreshToken,
     };
+    ctx.status = 200;
   } else {
     ctx.throw(400, 'Password is incorrect');
   }
